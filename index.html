@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>趣味人格测试</title>
+    <style>
+        /* 全局样式：极简无冲突 */
+        body { font-family: Arial, sans-serif; max-width: 85%; margin: 0 auto; padding: 20px 0; background: #f5f5f5; }
+        h1 { text-align: center; color: #333; font-size: 24px; margin-bottom: 15px; }
+        .disclaimer { text-align: center; color: #666; font-size: 12px; line-height: 1.5; margin: 0 0 30px; padding: 10px; background: #fafafa; border-radius: 6px; }
+        /* 按钮基础样式：点击区域足够大 */
+        .btn { padding: 15px 30px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; color: white; margin: 10px 0; }
+        /* 开始界面 */
+        .start-wrap { text-align: center; margin-top: 50px; }
+        .btn-15 { background: #4299e1; }
+        .btn-60 { background: #9f7aea; }
+        /* 弹窗 */
+        .modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 25px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 10; display: none; }
+        .modal p { color: #e53e3e; font-weight: 600; margin-bottom: 20px; text-align: center; }
+        .btn-ok { background: #48bb78; }
+        .btn-cancel { background: #e53e3e; }
+        .mask { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.3); z-index: 9; display: none; }
+        /* 答题界面 */
+        .quiz-wrap { display: none; margin-top: 20px; }
+        .progress { text-align: center; color: #666; margin-bottom: 20px; font-size: 16px; }
+        .question { background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
+        .q-text { color: #333; font-size: 15px; margin-bottom: 10px; }
+        .q-btn-group { display: flex; gap: 8px; }
+        .q-btn { flex: 1; padding: 12px 0; font-size: 14px; }
+        .q-btn-yes { background: #38a169; }
+        .q-btn-no { background: #e53e3e; }
+        .tip { text-align: center; color: #999; font-size: 12px; margin-top: 8px; }
+        .btn-submit { width: 100%; background: #4299e1; margin-top: 25px; }
+        .btn-submit:disabled { background: #ccc; cursor: not-allowed; }
+        /* 结果界面 */
+        .result-wrap { display: none; text-align: center; margin-top: 50px; background: white; padding: 25px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .result-title { font-size: 22px; font-weight: bold; margin-bottom: 20px; }
+        .personality-name { font-size: 26px; font-weight: bold; color: #9f7aea; margin: 10px 0; }
+        .personality-desc { color: #666; font-size: 14px; line-height: 1.6; margin: 15px 0; }
+    </style>
+</head>
+<body>
+    <h1>🎯 真实心理性别测试</h1>
+    <!-- 测试声明 -->
+    <div class="disclaimer">
+        🔔 测试声明：本测试为趣味娱乐性质，所有题目及结果仅基于性别特质的常见维度进行趣味划分，测试结果仅供参考。    </div>
+
+    <!-- 1. 开始界面 -->
+    <div class="start-wrap" id="startWrap">
+        <button class="btn btn-15" onclick="showModal()">精简版（15题·快速完成）</button>
+        <br>
+        <button class="btn btn-60" onclick="startQuiz(60)">精确版（60题·结果更准）</button>
+    </div>
+
+    <!-- 2. 确认弹窗 -->
+    <div class="modal" id="modal">
+        <p>注意!15题结果可能会不精准，确认要进行精简答题吗？</p >
+        <button class="btn btn-ok" onclick="startQuiz(15)">确定</button>
+        <button class="btn btn-cancel" onclick="hideModal()">取消</button>
+    </div>
+    <div class="mask" id="mask"></div>
+
+    <!-- 3. 答题界面 -->
+    <div class="quiz-wrap" id="quizWrap">
+        <div class="progress" id="progress">当前进度：0/0</div>
+        <div id="questionList"></div>
+        <button class="btn btn-submit" id="submitBtn" disabled>提交答案</button>
+    </div>
+
+    <!-- 4. 结果界面 -->
+    <div class="result-wrap" id="resultWrap">
+        <div class="result-title" id="resultTitle"></div>
+        <div class="personality-name" id="personalityName"></div>
+        <div class="personality-desc" id="personalityDesc"></div>
+    </div>
+
+    <script>
+        // 1. 基础配置
+        const personalityData = {
+            1: { name: "性别酷儿", desc: "性别酷儿是对传统男 / 女二元性别框架的突破与重构，并非单一固定身份，而是涵盖多元性别表达与认同的集合。它否定性别非此即彼的刻板划分，认可个体性别可能处于二元之间、跨越两者或完全脱离二元范畴，强调性别身份的流动性与自主性。核心是拒绝被单一性别标签束缚，主张每个人有权自主定义自身性别体验，是性别多元理念的重要实践与体现。" },
+            2: { name: "无性别", desc: "不认同任何形式的性别分类，内心没有明确的性别归属感知，也不被男性化、女性化的特质定义。性别表达通常偏向中性，对社会赋予性别的角色、规范持疏离态度，核心是 “无性别归属” 的自我认知，强调性别中立或无性别状态。
+" },
+            3: { name: "性别流动", desc: "性别认同并非固定不变，会随时间、情境、情绪等因素在不同性别状态间自然波动。可能在某一阶段认同为男性，另一阶段偏向女性或非二元性别，核心特征是性别身份的灵活性与动态变化，不被单一性别标签束缚。
+。" },
+            4: { name: "两性特征者", desc: "出生时的生物学特征（如染色体、生殖器、性激素等）不完全契合典型的男性或女性定义，存在混合性的生理特征。与非二元性别不同，其核心是生理层面的性别特征混合，而性别认同可能是顺性别、跨性别或非二元性别等多种类型。
+" },
+            5: { name: "双性人", desc: "同时认同两种不同的性别（未必是传统意义上的男与女），两种性别认同可同时存在或交替显现。其性别表达会根据认同的性别灵活调整，既可能展现出混合的性别特质，也可能在不同场景下侧重不同性别对应的行为模式。" },
+            6: { name: "跨性别男性", desc: "内心却持续且坚定地认同自己为男性。为减少性别焦虑，部分人会通过激素治疗、性别肯定手术等方式调整生理特征，使其与性别认同匹配，核心是性别认同与出生分配性别存在明确且稳定的差异。" },
+            7: { name: "跨性别女性", desc: "自我性别认同为女性。这类群体常因性别认同与生理特征的错位产生心理困扰，部分人会选择荷尔蒙治疗、整形手术等方式实现生理特征女性化，以契合内心的性别认知，属于跨性别群体的重要类别。" },
+            8: { name: "沃尔玛购物袋", desc: "你具备出色的沟通能力和亲和力，在社交场合中游刃有余，这是因为你涵盖了97种不同性别的特征，是极其全面的存在。不要在意其他人的目光，做好自己才是最重要的。" },
+            9: { name: "超雄", desc: "你的身材高大，性发育与生育能力基本正常，无明显外观异常。可能伴随轻度智力低下、注意力不集中或性格易激惹，网传 “暴力倾向” 无科学依据，可能有男同性恋倾向。" },
+            10: { name: "超雌", desc: "你的身材略高，性发育正常且有生育能力。可能伴轻度智力低下、言语或运动发育迟缓，X 染色体越多症状越明显，可能存在器官畸形或心理问题，可能有女同倾向。" }
+        };
+        let totalQuestions = 0;
+        let userAnswers = [];
+        let keyNormal = []; // 前N-1是+最后否 → 正常
+        let keyAbnormal = []; // 前N-1否+最后是 → 不正常
+
+        // 2. 生成题目
+        function generateQuestions(count) {
+            const baseQuestions = [
+               "你更倾向于选择蓝色系还是粉色系的日常用品？"，"面对冲突时，你更习惯直接反驳还是委婉沟通？"，"周末休闲时，你更爱参与球类运动还是手工创作？"，"选购衣物时，你优先关注舒适实用还是款式美观？"，"和朋友聚会，你更擅长主导话题还是倾听回应？"，"遇到难题，你更倾向独立解决还是寻求他人帮助？"，"你对机械原理的兴趣是否高于美妆技巧？"，"你更愿意担任团队决策者还是协调者？"，"你对科幻电影的喜爱是否超过言情剧？"，"你更习惯快速做决定还是反复斟酌？"，"你是否更在意他人对自己能力的认可而非外表评价？"，"你更擅长逻辑推理题还是情感分析题？"，"休闲时，你更爱户外探险还是居家阅读？"，"你对数字敏感程度是否高于色彩搭配？"，"与人争执时，你更易理性辩论还是情绪波动？"，"你更倾向于穿宽松服饰还是修身款式？"，"你对汽车参数的兴趣是否超过饰品设计？"，"你更擅长制定计划还是灵活应变？"，"你是否更享受竞争带来的成就感而非合作的融洽感？"，"你对运动品牌的关注度是否高于时尚奢侈品牌？"，"你更习惯用简洁语言表达还是详细描述？"，"你对编程、维修等技能的兴趣是否高于烹饪、花艺？"，"你面对压力时，更易冷静应对还是需要情感慰藉？"，"你更倾向于短发造型还是长发风格？"，"你对历史战争题材的兴趣是否超过宫廷言情？"，"你更擅长数学计算还是语文写作？"，"你购物时，更注重功能实用性还是外观颜值？"，"你对球类赛事的关注度是否高于选秀节目？"，"你更习惯独来独往还是结伴而行？"，"你是否更在意规则公平性而非人情世故？"，"你对工具类 APP 的使用率是否高于美妆、穿搭类？"，"你更擅长分析问题根源还是安抚他人情绪？"，"你对建筑结构的兴趣是否超过室内装饰？"，"你做选择时，更依赖理性判断还是直觉感受？"，"你更倾向于中性色调的物品还是鲜艳色彩的物品？"，"你对军事装备的了解程度是否高于护肤品？"，"你更习惯提前规划行程还是临时决定？"，"你是否更享受解决难题的过程而非分享感受？"，"你对运动鞋的喜爱是否超过高跟鞋？"，"你更擅长口头表达还是书面记录？"，"你对物理、化学知识的兴趣是否高于文学、艺术？"，"你与人交往时，更注重坦诚直率还是委婉客气？"，"你更倾向于简洁干练的穿搭风格还是柔美优雅的风格？"，"你对游戏的喜爱是否超过追剧？"，"你更擅长动手操作还是脑力思考？"，"你是否更在意个人成就而非人际关系和谐？"，"你对户外装备的关注度是否高于家居饰品？"，"你更习惯快速行动还是深思熟虑？"，"你对时政新闻的兴趣是否超过娱乐八卦？"，"你更擅长整理归纳还是创意发散？"，"你购物时，更倾向于性价比还是品牌溢价？"，"你对格斗、竞技类运动的兴趣是否超过舞蹈、瑜伽？"，"你与人合作时，更易坚持己见还是妥协让步？"，"你更倾向于简约风格的装修还是精致华丽的风格？"，"你对电子产品的更新迭代是否比美妆新品更关注？"，"你更习惯用逻辑说服他人还是用情感打动他人？"，"你是否更享受独处时光而非社交聚会？"，"你对工程、技术类职业的兴趣是否超过教育、医护类？"
+            ];
+            const questions = [];
+            for (let i = 0; i < count; i++) {
+                questions.push(baseQuestions[i % baseQuestions.length]);
+            }
+            return questions;
+        }
+
+        // 3. 弹窗控制
+        function showModal() {
+            document.getElementById("modal").style.display = "block";
+            document.getElementById("mask").style.display = "block";
+        }
+        function hideModal() {
+            document.getElementById("modal").style.display = "none";
+            document.getElementById("mask").style.display = "none";
+        }
+
+        // 4. 开始答题（核心逻辑）
+        function startQuiz(count) {
+            totalQuestions = count;
+            // 生成双密钥
+            keyNormal = Array(count).fill("是");
+            keyNormal[count - 1] = "否";
+            keyAbnormal = Array(count).fill("否");
+            keyAbnormal[count - 1] = "是";
+            userAnswers = Array(count).fill(null);
+
+            const questions = generateQuestions(count);
+            const questionList = document.getElementById("questionList");
+            questionList.innerHTML = "";
+
+            // 渲染题目
+            questions.forEach((q, index) => {
+                const questionEl = document.createElement("div");
+                questionEl.className = "question";
+                questionEl.innerHTML = `
+                    <div class="q-text">${index + 1}. ${q}</div>
+                    <div class="q-btn-group">
+                        <button class="btn q-btn q-btn-yes" onclick="selectAnswer(${index}, '是')">是</button>
+                        <button class="btn q-btn q-btn-no" onclick="selectAnswer(${index}, '否')">否</button>
+                    </div>
+                    <div class="tip" id="tip-${index}">请选择「是」或「否」</div>
+                `;
+                questionList.appendChild(questionEl);
+            });
+
+            // 切换界面
+            document.getElementById("startWrap").style.display = "none";
+            document.getElementById("modal").style.display = "none";
+            document.getElementById("mask").style.display = "none";
+            document.getElementById("quizWrap").style.display = "block";
+            document.getElementById("resultWrap").style.display = "none";
+            document.getElementById("progress").textContent = `当前进度：0/${count}`;
+            document.getElementById("submitBtn").disabled = true;
+        }
+
+        // 5. 选择答案（点击必生效）
+        function selectAnswer(index, answer) {
+            userAnswers[index] = answer;
+            const tipEl = document.getElementById(`tip-${index}`);
+            const yesBtn = document.querySelectorAll(".q-btn-yes")[index];
+            const noBtn = document.querySelectorAll(".q-btn-no")[index];
+
+            // 按钮状态切换
+            yesBtn.style.background = answer === "是" ? "#2f855a" : "#38a169";
+            noBtn.style.background = answer === "否" ? "#c53030" : "#e53e3e";
+            // 关键修改：选「是」显示对勾，选「否」显示叉号
+            tipEl.textContent = `${answer === "是" ? "✅" : "❌"} 已选择：${answer}`;
+            tipEl.style.color = answer === "是" ? "#38a169" : "#e53e3e";
+
+            // 更新进度
+            const answeredCount = userAnswers.filter(ans => ans !== null).length;
+            document.getElementById("progress").textContent = `当前进度：${answeredCount}/${totalQuestions}`;
+            document.getElementById("submitBtn").disabled = answeredCount < totalQuestions;
+        }
+
+        // 6. 提交答案
+        document.getElementById("submitBtn").onclick = function() {
+            const isNormal = JSON.stringify(userAnswers) === JSON.stringify(keyNormal);
+            const isAbnormal = JSON.stringify(userAnswers) === JSON.stringify(keyAbnormal);
+            const resultTitle = document.getElementById("resultTitle");
+            const personalityName = document.getElementById("personalityName");
+            const personalityDesc = document.getElementById("personalityDesc");
+
+            if (isNormal) {
+                resultTitle.textContent = "🎉 男性";
+                resultTitle.style.color = "#48bb78";
+                personalityName.style.display = "none";
+                personalityDesc.style.display = "none";
+            } else if (isAbnormal) {
+                resultTitle.textContent = "🎉 女性";
+                resultTitle.style.color = "#e53e3e";
+                personalityName.style.display = "none";
+                personalityDesc.style.display = "none";
+            } else {
+                const randomNum = Math.floor(Math.random() * 10) + 1;
+                resultTitle.textContent = "😈 测试结果";
+                resultTitle.style.color = "#333";
+                personalityName.style.display = "block";
+                personalityDesc.style.display = "block";
+                personalityName.textContent = personalityData[randomNum].name;
+                personalityDesc.textContent = personalityData[randomNum].desc;
+            }
+
+            // 切换到结果界面
+            document.getElementById("quizWrap").style.display = "none";
+            document.getElementById("resultWrap").style.display = "block";
+        };
+    </script>
+</body>
+</html>
